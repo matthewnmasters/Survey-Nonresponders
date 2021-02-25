@@ -88,7 +88,7 @@ for idx in range(len(reasonsLemmatized)):
 for idx in range(len(suggestionsLemmatized)):
     suggestionsLemmatized[idx] = tokenizer.tokenize(suggestionsLemmatized[idx])
     
-"""Remove numbers? Remove words less than X number of characters?"""
+"""Remove numbers? Remove words less than X number of characters? Remove 'um' and 'uh'? """
 
 #########################################################################################
 #Remove stop words, after downloading the stopwords data                                #
@@ -145,15 +145,15 @@ from gensim.models import CoherenceModel
 
 # Set training parameters.
 chunksize = 811
-passes = 50
-iterations = 500
+passes = 100
+iterations = 10000
 eval_every = None  # evaluate perplexity
 
 # Make a index to word dictionary.
 temp = reasonsDictionary[0]  # This is only to "load" the dictionary.
 id2word = reasonsDictionary.id2token
 
-#montecarlo showed 6,11,18 topics as being a decent spot for c_v coherence
+#montecarlo showed 3 topics as being a decent spot for c_v coherence
 for i in range(2,51,1):
     model = LdaModel(
         corpus=reasonsCorpus,
@@ -179,8 +179,8 @@ for i in range(2,51,1):
 
 # Set training parameters.
 chunksize = 1541
-passes = 50
-iterations = 500
+passes = 100
+iterations = 10000
 eval_every = None  # evaluate perplexity
 
 
@@ -188,7 +188,7 @@ eval_every = None  # evaluate perplexity
 temp = suggestionsDictionary[0]  # This is only to "load" the dictionary.
 id2word = suggestionsDictionary.id2token
 
-#montecarlo showed 5,6,8 topics as being a decent spot for c_v coherence
+#montecarlo showed 8 topics as being a decent spot for c_v coherence
 for i in range(2,51,1):
     model = LdaModel(
         corpus=suggestionsCorpus,
@@ -212,18 +212,18 @@ for i in range(2,51,1):
 ################################################################################################
 
 chunksize = 811
-passes = 100
-iterations = 10000
+passes = 1000
+iterations = 100000
 eval_every = None  # evaluate perplexity
-num_topics = 6
+num_topics = 3
 
 # Make a index to word dictionary.
 temp = reasonsDictionary[0]  # This is only to "load" the dictionary.
 id2word = reasonsDictionary.id2token
 
-#montecarlo showed 6,11,18 topics as being a decent spot for c_v coherence
+#montecarlo showed 3 topics as being a decent spot for c_v coherence
 
-model = LdaModel(
+reasonsModel = LdaModel(
     corpus=reasonsCorpus,
     id2word=id2word,
     chunksize=chunksize,
@@ -236,11 +236,14 @@ model = LdaModel(
     )
 
 # Calculate coherence
-coherence_model_lda = CoherenceModel(model=model, texts=reasonsBigram, dictionary=reasonsDictionary, coherence='c_v')
+coherence_model_lda = CoherenceModel(model=reasonsModel, texts=reasonsBigram, dictionary=reasonsDictionary, coherence='c_v')
 coherence_lda = coherence_model_lda.get_coherence()
 print('Num Topics: ', num_topics, 'coherence is: ', coherence_lda)
 
-for idx, topic in model.print_topics(-1,50):
+reasonsModel.save('C:/Users/matth/Documents/GitHub/Survey-Nonresponders/Data/reasonsModel_save')
+reasonsModel = LdaModel.load('C:/Users/matth/Documents/GitHub/Survey-Nonresponders/Data/reasonsModel_save')
+
+for idx, topic in reasonsModel.print_topics(-1,50):
     print("Topic: {} \nWords: {}".format(idx, topic ))
     print("\n")
     
@@ -249,18 +252,18 @@ for idx, topic in model.print_topics(-1,50):
 ################################################################################################
 
 chunksize = 1541
-passes = 100
-iterations = 10000
+passes = 1000
+iterations = 100000
 eval_every = None  # evaluate perplexity
-num_topics = 6
+num_topics = 8
 
 # Make a index to word dictionary.
 temp = suggestionsDictionary[0]  # This is only to "load" the dictionary.
 id2word = suggestionsDictionary.id2token
 
-#montecarlo showed 5,6,8 topics as being a decent spot for c_v coherence
+#montecarlo showed 8 topics as being a decent spot for c_v coherence
 
-model = LdaModel(
+suggestionsModel = LdaModel(
     corpus=suggestionsCorpus,
     id2word=id2word,
     chunksize=chunksize,
@@ -273,10 +276,49 @@ model = LdaModel(
     )
 
 # Calculate coherence
-coherence_model_lda = CoherenceModel(model=model, texts=suggestionsBigram, dictionary=suggestionsDictionary, coherence='c_v')
+coherence_model_lda = CoherenceModel(model=suggestionsModel, texts=suggestionsBigram, dictionary=suggestionsDictionary, coherence='c_v')
 coherence_lda = coherence_model_lda.get_coherence()
 print('Num Topics: ', num_topics, 'coherence is: ', coherence_lda)
 
-for idx, topic in model.print_topics(-1,50):
+suggestionsModel.save('C:/Users/matth/Documents/GitHub/Survey-Nonresponders/Data/suggestionsModel_save')
+suggestionsModel = LdaModel.load('C:/Users/matth/Documents/GitHub/Survey-Nonresponders/Data/suggestionsModel_save')
+
+for idx, topic in suggestionsModel.print_topics(-1,50):
     print("Topic: {} \nWords: {}".format(idx, topic ))
     print("\n")
+    
+#########################################################################################
+#Create transformed corpuses (corpi?)                                                   #
+#########################################################################################
+
+txReasons = pd.DataFrame(reasonsModel.get_document_topics(reasonsCorpus))
+txSuggestions = pd.DataFrame(suggestionsModel.get_document_topics(suggestionsCorpus))
+
+#Now merge with the original data
+txReasons["Response"] = reasonsList
+txSuggestions["Response"] = suggestionsList
+
+#Split up the tuples into separate columns
+txReasons["TopicA"], txReasons["PercA"] = txReasons[0].str
+txReasons["TopicB"], txReasons["PercB"] = txReasons[1].str
+txReasons["TopicC"], txReasons["PercC"] = txReasons[2].str
+
+txSuggestions["TopicA"], txSuggestions["PercA"] = txSuggestions[0].str
+txSuggestions["TopicB"], txSuggestions["PercB"] = txSuggestions[1].str
+txSuggestions["TopicC"], txSuggestions["PercC"] = txSuggestions[2].str
+txSuggestions["TopicD"], txSuggestions["PercD"] = txSuggestions[3].str
+txSuggestions["TopicE"], txSuggestions["PercE"] = txSuggestions[4].str
+txSuggestions["TopicF"], txSuggestions["PercF"] = txSuggestions[5].str
+txSuggestions["TopicG"], txSuggestions["PercG"] = txSuggestions[6].str
+txSuggestions["TopicH"], txSuggestions["PercH"] = txSuggestions[7].str
+
+#remove the original tuples
+txReasons = txReasons[txReasons.columns[3:10]]
+txSuggestions = txSuggestions[txSuggestions.columns[8:25]]
+
+#########################################################################################
+#Write to disk. Manipulation and categorizing can be done easier in R                   #
+#########################################################################################
+
+txReasons.to_csv("modeledReasons.csv", index=False, encoding='utf-8-sig')
+txSuggestions.to_csv("modeledSuggestions.csv", index=False, encoding='utf-8-sig')
